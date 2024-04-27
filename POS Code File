@@ -1,0 +1,582 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import random
+from faker import Faker
+fake = Faker()
+
+# Generate random POS transaction data
+def generate_pos_data(num_rows):
+    data = []
+    for _ in range(num_rows):
+        # Generate random date within the last year
+        date = fake.date_between(start_date="-1y", end_date="now")
+        # Generate random item purchase
+        item_purchase = fake.word()
+        
+        # Generate random unit purchase
+        unit_purchase = random.randint(1, 10)
+        
+        # Generate random unit price between 1 and 100
+        unit_price = round(random.uniform(40,50), 2)
+        
+        # Generate random tax percentage between 0 and 20
+        tax_percentage = round(random.uniform(0, 20), 2)
+        
+        # Calculate transaction amount
+        transaction_amount = round(unit_purchase * unit_price * (1 + tax_percentage / 100),2)
+        
+        # Generate random transaction mode
+        transaction_mode = random.choice(['Cash', 'Credit Card', 'Debit Card'])
+        
+        # Generate random transaction currency
+#         transaction_currency = random.choice(['USD', 'INR'])
+        
+        # Append to data list
+        data.append([date, item_purchase, unit_purchase, unit_price, tax_percentage, transaction_amount, transaction_mode])
+    
+    return data
+
+# Generate POS data
+pos_data = generate_pos_data(10000)
+
+# Create DataFrame
+columns = ['Date', 'Item Purchase', 'Unit Purchase', 'Unit Price', 'Tax Percentage', 'Transaction Amount', 'Transaction Mode']
+df = pd.DataFrame(pos_data, columns=columns)
+
+# Display first few rows
+print(df.head())
+
+# Save to CSV
+df.to_csv('pos_transactions2.csv', index=False)
+
+
+df.shape
+
+df.head()
+
+df.describe()
+
+
+# Generate random indices to add null values to
+random_indices = np.random.choice(df.index, size=10, replace=False)
+
+# Add null values to 'unit price' column for selected rows
+df.loc[random_indices, 'Unit Price'] = np.nan
+
+# Display the modified dataset
+print(df)
+
+df.isnull().sum()
+
+# Fill missing values with the median of the column
+x = df['Unit Price'].median()
+df['Unit Price'].fillna(x,inplace=True)
+
+# check the null values are present or not
+df.isnull().sum()
+
+# Calculate the IQR
+Q1 = df['Transaction Amount'].quantile(0.25)
+Q3 = df['Transaction Amount'].quantile(0.75)
+IQR = Q3 - Q1
+print(IQR)
+
+# Define the lower and upper bounds for outliers
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR
+print(lower_bound , upper_bound)
+
+# Identify outliers
+outliers = df[(df['Transaction Amount'] < lower_bound) | (df['Transaction Amount'] > upper_bound)]
+
+# Display the outliers
+outliers
+
+# Create a box plot to visualize outliers in the Transaction Amount column
+plt.figure(figsize=(8, 6))
+plt.boxplot(df['Transaction Amount'], vert=False)
+plt.xlabel('Transaction Amount ')
+plt.title('Box plot of Total Amount with Outliers')
+plt.show()
+
+# Calculate Z-score for Total_Price column
+z_scores = (df['Transaction Amount'] - df['Transaction Amount'].mean()) / df['Transaction Amount'].std()
+
+# Define threshold for outlier detection
+threshold = 3
+
+# Identify outliers
+outliers1 = df[abs(z_scores) > threshold]
+
+# Count outliers
+outliers_count = len(outliers)
+
+print("Number of outliers:", outliers_count)
+
+# Import preprocessing from sklearn
+
+from sklearn import preprocessing
+from sklearn.preprocessing import LabelEncoder
+# Create a LabelEncoder object and fit it to each feature in data
+
+# encode labels with value between 0 and n_classes-1
+
+le = preprocessing.LabelEncoder()
+# Fit and Transform
+# use df.apply() to apply le.fit_transform to all columns
+
+df= df.astype(str).apply(le.fit_transform)
+df.head()
+
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_absolute_error
+import pandas as pd
+import numpy as np
+
+# Split the dataset into features (X) and target variable (y)
+X = df.drop('Transaction Amount',axis=1) # Features (using 'Tax' and 'Customer' columns)
+y = df['Transaction Amount'] # Target variable
+
+# Split the data into training and testing sets (80-20 rule)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
+
+# Initialize and train the linear regression model
+model = LinearRegression()
+model.fit(X_train, y_train)
+
+# Predict on the testing set
+y_pred = model.predict(X_test)
+
+# Evaluate the model and calculate MSE
+mse = mean_squared_error(y_test, y_pred)
+print("Mean Squared Error (MSE):", mse)
+
+# Calculating Mean Absolute Error (MAE)
+mae = mean_absolute_error(y_test, y_pred)
+print("Mean Absolute Error (MAE):", mae)
+
+
+
+y_pred
+
+ model.predict([[157,45,4,4813,701,0]])
+
+from sklearn.linear_model import Lasso, Ridge
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error
+
+# Assuming df contains your dataset and you want to predict 'Transaction Amount'
+X = df.drop(columns=['Transaction Amount'])
+y = df['Transaction Amount']
+
+# Split the data into training and test sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Lasso Regression
+lasso_model = Lasso(alpha=0.1, random_state=42)
+lasso_model.fit(X_train, y_train)
+lasso_train_score = lasso_model.score(X_train, y_train)
+lasso_test_score = lasso_model.score(X_test, y_test)
+y_pred_lasso = lasso_model.predict(X_test)
+lasso_mae = mean_absolute_error(y_test, y_pred_lasso)
+
+# Print scores and MAE for each model
+print("Lasso Regression Train Score:", lasso_train_score)
+print("Lasso Regression Test Score:", lasso_test_score)
+print("Lasso Regression MAE:", lasso_mae)
+
+
+
+
+
+# Ridge Regression
+ridge_model = Ridge(alpha=1.0, random_state=42)
+ridge_model.fit(X_train, y_train)
+ridge_train_score = ridge_model.score(X_train, y_train)
+ridge_test_score = ridge_model.score(X_test, y_test)
+y_pred_ridge = ridge_model.predict(X_test)
+ridge_mae = mean_absolute_error(y_test, y_pred_ridge)
+
+
+
+print("Ridge Regression Train Score:", ridge_train_score)
+print("Ridge Regression Test Score:", ridge_test_score)
+print("Ridge Regression MAE:", ridge_mae)
+
+
+
+
+# Random Forest Regression
+rf_model = RandomForestRegressor(n_estimators=100, random_state=42)
+rf_model.fit(X_train, y_train)
+rf_train_score = rf_model.score(X_train, y_train)
+rf_test_score = rf_model.score(X_test, y_test)
+y_pred_rf = rf_model.predict(X_test)
+rf_mae = mean_absolute_error(y_test, y_pred_rf)
+
+
+
+print("Random Forest Regression Train Score:", rf_train_score)
+print("Random Forest Regression Test Score:", rf_test_score)
+print("Random Forest Regression MAE:", rf_mae)
+
+
+
+# Decision Tree Regression
+dt_model = DecisionTreeRegressor(max_depth=90,random_state=42)
+dt_model.fit(X_train, y_train)
+dt_train_score = dt_model.score(X_train, y_train)
+dt_test_score = dt_model.score(X_test, y_test)
+y_pred_dt = dt_model.predict(X_test)
+dt_mae = mean_absolute_error(y_test, y_pred_dt)
+
+
+print("Decision Tree Regression Train Score:", dt_train_score)
+print("Decision Tree Regression Test Score:", dt_test_score)
+print("Decision Tree Regression MAE:", dt_mae)
+
+
+import matplotlib.pyplot as plt
+
+# Model name
+model_name = 'Decision Tree'
+
+# Train score
+train_score = dt_train_score
+
+# Test score
+test_score = dt_test_score
+
+# MAE
+mae_score = dt_mae
+
+# Plot train score
+plt.figure(figsize=(6, 4))
+plt.bar(model_name, train_score, color='skyblue')
+plt.xlabel('Model')
+plt.ylabel('Train Score')
+plt.title('Train Score of Decision Tree Regression Model')
+plt.ylim(0, 1)  # Adjust ylim if necessary
+plt.show()
+
+# Plot test score
+plt.figure(figsize=(6, 4))
+plt.bar(model_name, test_score, color='lightgreen')
+plt.xlabel('Model')
+plt.ylabel('Test Score')
+plt.title('Test Score of Decision Tree Regression Model')
+plt.ylim(0, 1)  # Adjust ylim if necessary
+plt.show()
+
+# Plot MAE
+plt.figure(figsize=(6, 4))
+plt.bar(model_name, mae_score, color='salmon')
+plt.xlabel('Model')
+plt.ylabel('Mean Absolute Error (MAE)')
+plt.title('MAE of Decision Tree Regression Model')
+plt.show()
+
+
+from sklearn.ensemble import GradientBoostingRegressor
+
+# Initialize Gradient Boosting Regression model
+gb_model = GradientBoostingRegressor(n_estimators=100, learning_rate=0.1, random_state=42)
+
+# Train the Gradient Boosting model on the training data
+gb_model.fit(X_train, y_train)
+
+# Make predictions on the training set
+y_pred_train_gb = gb_model.predict(X_train)
+
+# Calculate the R^2 score on the training set
+gb_train_score = gb_model.score(X_train, y_train)
+print("Gradient Boosting Regression Training Score:", gb_train_score)
+
+# Make predictions on the test set
+y_pred_test_gb = gb_model.predict(X_test)
+
+# Calculate the R^2 score on the test set
+gb_test_score = gb_model.score(X_test, y_test)
+print("Gradient Boosting Regression Test Score:", gb_test_score)
+
+# Evaluate the model using Mean Absolute Error (MAE) on the test set
+mae_gb = mean_absolute_error(y_test, y_pred_test_gb)
+print("Gradient Boosting Regression Test MAE:", mae_gb)
+
+
+df.head()
+
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+
+# Load your dataset
+data = pd.read_csv("pos_transactions1.csv")
+
+# Assuming your dataset has features (X) and demand (y)
+X = df.drop("Transaction Amount",axis=1)  # Features
+y = df["Transaction Amount"]  # Target variable
+
+# Split data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Train your model (this step depends on your specific model)
+model = RandomForestRegressor()
+model.fit(X_train, y_train)
+
+# Assuming you want to predict demand for the test set
+predicted_demand = model.predict(X_test)
+
+# Export predictions to a CSV file
+predictions_df = pd.DataFrame({"Actual Demand": y_test, "Predicted Demand": predicted_demand})
+predictions_df.to_csv("predicted_demand.csv", index=False)
+
+ # You can further analyze or visualize the forecasted transactions as needed
+
+
+# load the dataset
+df3=pd.read_csv('predicted_demand.csv')
+df3
+
+# Split data into features and target variable
+X = data.drop(columns=['Transaction Amount'])  # Features
+y = data['Transaction Amount']  # Target variable
+
+# Split data into training and testing sets (80% train, 20% test)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Optionally, if you want to save the split datasets to CSV files
+X_train.to_csv('pos_train_features.csv', index=False)
+X_test.to_csv('pos_test_features.csv', index=False)
+y_train.to_csv('pos_train_target.csv', index=False)
+y_test.to_csv('pos_test_target.csv', index=False)
+
+data1 = pd.read_csv('pos_train_features.csv')
+data1.head()
+
+data1.shape
+
+data2 = pd.read_csv('pos_test_features.csv')
+data2.head()
+
+data2.shape
+
+data3 = pd.read_csv('pos_train_target.csv')
+data3.head()
+
+data3.shape
+
+data4 = pd.read_csv('pos_test_target.csv')
+data4.head()
+
+data4.shape
+
+# import matplotlib.pyplot as plt
+
+# # Plotting actual vs predicted values
+# plt.figure(figsize=(10, 6))
+# plt.scatter(y_test, predicted_demand, color='blue')
+# plt.plot([min(y_test), max(y_test)], [min(y_test), max(y_test)], linestyle='--', color='red')
+# plt.xlabel('Actual Demand')
+# plt.ylabel('Predicted Demand')
+# plt.title('Actual vs Predicted Demand')
+# plt.show()
+
+
+import pandas as pd
+from sklearn.model_selection import train_test_split
+# from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error
+
+# Load your dataset (replace with actual data)
+df = pd.read_csv('pos_transactions2.csv')
+# file_path = 'C:\Users\HP\Desktop\Saibal Personal Documents\Preprocessed_Transaction.csv'
+# df = pd.read_csv(file_path)
+
+# Feature engineering (extract day of the week, month, etc.)
+df['DayOfWeek'] = pd.to_datetime(df['Date']).dt.dayofweek
+df['Month'] = pd.to_datetime(df['Date']).dt.month
+
+# Split data into training and testing sets
+X = df[['DayOfWeek', 'Month']]
+y = df['Transaction Amount']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Train a simple linear regression model
+# model = LinearRegression()
+# model.fit(X_train, y_train)
+
+# Train a Random Forest regression model
+model = RandomForestRegressor(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+
+# Make predictions
+y_pred = model.predict(X_test)
+
+# Evaluate model performance
+mae = mean_absolute_error(y_test, y_pred)
+print(f'Mean Absolute Error: {mae:.2f}')
+
+# Evaluate the model and calculate MSE
+mse = mean_squared_error(y_test, y_pred)
+print(f"Mean Squared Error (MSE):{mae:.2f}")
+
+
+
+# Forecast demand for new data (e.g., future transaction records)
+# You can use the trained model to predict 'amount' for specific dates.
+
+# Assuming you have new data (e.g., future dates) for forecasting
+new_dates = pd.date_range(start='2024-04-17', periods=100, freq='D')
+new_features = pd.DataFrame({
+    'DayOfWeek': new_dates.dayofweek,
+    'Month': new_dates.month
+})
+
+# Predict the demand for the new dates
+forecasted_amounts = model.predict(new_features)
+
+# Create a new DataFrame with forecasted results
+forecast_df = pd.DataFrame({
+    'Date of Transaction': new_dates,
+    'Transaction Amount': forecasted_amounts
+})
+
+# Write the forecasted results to a new CSV file
+forecast_df.to_csv('forecasted_result1.csv', index=False)
+print("Forecasted results saved to 'forecasted_result1.csv'")
+
+
+
+from sklearn.model_selection import KFold
+kf = KFold(n_splits=4, shuffle=False).split(range(25))
+
+# print the contents of each training and testing set
+print('{} {:^61} {}'.format('Iteration', 'Training set observations', 'Testing set observations'))
+for iteration, data in enumerate(kf, start=1):
+    print('{:^9} {} {:^25}'.format(iteration, data[0], str(data[1])))
+
+df = pd.read_csv('forecasted_result1.csv')
+df.head()
+
+import matplotlib.pyplot as plt
+x = df['Date of Transaction']
+Y = df['Transaction Amount']
+plt.plot(x,Y,color='g')
+plt.scatter(x,Y,color='r')
+plt.legend()
+plt.show()
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
+
+# Assuming 'X' is your feature matrix and 'y' is your target variable
+# Let's create a sample dataset for demonstration
+np.random.seed(42)
+X = np.random.rand(100, 1) * 10
+y = 2 * X.squeeze() + np.random.randn(100)  # y = 2X + noise
+
+# Split data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Fit a linear regression model
+model = LinearRegression()
+model.fit(X_train, y_train)
+
+# Predict on test set
+y_pred = model.predict(X_test)
+
+# Scatter plot with regression line
+plt.figure(figsize=(8, 6))
+plt.scatter(X_test, y_test, color='blue', label='Actual')
+plt.plot(X_test, y_pred, color='red', linewidth=2, label='Predicted')
+plt.xlabel('Feature')
+plt.ylabel('Target')
+plt.title('Actual vs. Predicted Values')
+plt.legend()
+plt.show()
+
+# Residual plot
+residuals = y_test - y_pred
+plt.figure(figsize=(8, 6))
+sns.residplot(x=y_pred, y=residuals, color='green')
+plt.xlabel('Predicted Values')
+plt.ylabel('Residuals')
+plt.title('Residual Plot')
+plt.show()
+
+
+# Feature importance plot
+feature_importance = model.coef_
+feature_names = ['Transaction Amount']  # Assuming you have one feature in your dataset
+plt.figure(figsize=(8, 6))
+plt.bar(feature_names, feature_importance)
+plt.xlabel('Feature')
+plt.ylabel('Feature Importance')
+plt.title('Feature Importance Plot')
+plt.show()
+
+# Histogram of target variable
+plt.figure(figsize=(8, 6))
+plt.hist(y, bins=20, color='skyblue', edgecolor='black')
+plt.xlabel('Target Variable')
+plt.ylabel('Frequency')
+plt.title('Distribution of Target Variable')
+plt.show()
+
+
+# Plotting actual vs. predicted values
+plt.figure(figsize=(10, 6))
+
+# Plot actual values
+plt.bar(np.arange(len(y_test)), y_test, color='blue', alpha=0.5, label='Actual')
+
+# Plot predicted values
+plt.bar(np.arange(len(y_test)), y_pred, color='red', alpha=0.5, label='Predicted')
+
+plt.xlabel('Sample Index')
+plt.ylabel('Target Variable')
+plt.title('Comparison of Actual vs. Predicted Values')
+plt.legend()
+plt.show()
+
+
+# Create a figure with two subplots
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
+# Histogram of actual values
+ax1.hist(y_test, bins=20, color='blue', alpha=0.5, label='Actual')
+ax1.hist(y_pred, bins=20, color='red', alpha=0.5, label='Predicted')
+ax1.set_xlabel('Target Variable')
+ax1.set_ylabel('Frequency')
+ax1.set_title('Distribution of Actual vs. Predicted Values')
+ax1.legend()
+
+# Bar graph to compare actual and predicted values
+index = np.arange(len(y_test))
+bar_width = 0.35
+opacity = 0.8
+
+ax2.bar(index, y_test, bar_width, color='blue', alpha=0.5, label='Actual')
+ax2.bar(index + bar_width, y_pred, bar_width, color='red', alpha=0.5, label='Predicted')
+ax2.set_xlabel('Sample Index')
+ax2.set_ylabel('Target Variable')
+ax2.set_title('Comparison of Actual vs. Predicted Values')
+ax2.legend()
+
+plt.tight_layout()
+plt.show()
+
+
